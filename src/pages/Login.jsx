@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import { BASE_URL } from '../main';
 
 const Login = () => {
@@ -10,19 +11,10 @@ const Login = () => {
   const { setJwtToken } = useOutletContext();
   const navigate = useNavigate();
 
-  // Handle form submission
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    const payload = {
-      email,
-      password,
-    };
-
-    console.log('Sending login request with payload:', payload);
-
-    try {
-      // Perform the fetch request
+   
+  // Define the mutation function for login
+  const { mutate: login, isLoading } = useMutation({
+    mutationFn: async (payload) => {
       const response = await fetch(`${BASE_URL}/authenticate`, {
         method: 'POST',
         headers: {
@@ -37,6 +29,11 @@ const Login = () => {
 
       const data = await response.json();
       console.log("Server response data:", data);
+      return data;
+    },
+
+    onSuccess: (data) => {
+      console.log("Full server response:", data);
 
       // Trying to access the token using different possible keys
       const accessToken = data.data.access_token;
@@ -45,16 +42,32 @@ const Login = () => {
         toast.error("Login failed: No valid access token received from the server.");
         return;
       }
-
+    
       console.log("Access token:", accessToken);
 
-      setJwtToken(accessToken); // Store the JWT token
+      setJwtToken(data.data.access_token); // Store the JWT token
       toast.success('Logged in successfully');
       navigate('/'); // Redirect to the home page
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error during login:', error);
       toast.error(error.message || 'An error occurred. Please try again.');
-    }
+    },
+  });
+
+  // Handle form submission
+  const handleSubmit = (event) => {
+    event.preventDefault();
+
+    const payload = {
+      email,
+      password,
+    };
+
+    console.log('Sending login request with payload:', payload);
+
+    // Trigger the mutation
+    login(payload);
   };
 
   return (
@@ -99,9 +112,12 @@ const Login = () => {
           <button
             type="submit"
             aria-label="Login"
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            disabled={isLoading} // Disable the button while the request is in progress
+            className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+              isLoading ? 'bg-gray-400' : 'bg-indigo-600 hover:bg-indigo-700'
+            } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
           >
-            Login
+            {isLoading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
